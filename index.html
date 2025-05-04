@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Transformación: Planeta a Tablero</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background-image: url('img/planeta.png');
+      background-size: cover;
+      background-position: center;
+    }
+
+    /* Superposición negra que aparece sobre el planeta */
+    .container::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-color: black;
+      opacity: 0;
+      animation: fadeOverlay 5s forwards;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    @keyframes fadeOverlay {
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* Tablero centrado */
+    .board {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: grid;
+      grid-template-columns: repeat(8, min(12vw, 60px));
+      grid-template-rows: repeat(8, min(12vw, 60px));
+      opacity: 0;
+      animation: showBoard 2s 5s forwards; /* Aparece tras el fade */
+      z-index: 2;
+    }
+
+    @keyframes showBoard {
+      to {
+        opacity: 1;
+      }
+    }
+
+    .cell {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-decoration: none;
+      color: white;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+      cursor: pointer;
+      font-size: 2rem;
+      border: 1px solid #ddd; /* Añadí un borde para que se vea el límite de cada celda */
+    }
+
+    .cell.white {
+      background-color: #eee;
+      color: black;
+    }
+
+    .cell.black {
+      background-color: #333;
+    }
+
+    .cell:hover {
+      background-color: crimson;
+      color: white;
+    }
+
+    /* Banco de piezas para colocar */
+    .banco {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  opacity: 0; /* Oculto inicialmente */
+  animation: showBanco 2s 5s forwards; /* Aparece después del fade */
+  z-index: 3;
+}
+
+@keyframes showBanco {
+  to {
+    opacity: 1;
+  }
+}
+
+    .pieza {
+      font-size: 3rem;
+      cursor: grab;
+      user-select: none;
+      background-color: rgba(0, 0, 0, 0.5); /* Fondo para mayor visibilidad */
+      border-radius: 5px;
+      padding: 5px;
+      color: white;
+    }
+
+    .pieza-colocada {
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div id="mensaje" style="position: absolute; background: rgba(0,0,0,0.8); color: white; padding: 10px 15px; border-radius: 5px; display: none; z-index: 999; font-size: 1rem;"></div>
+
+    <div class="board" id="board"></div>
+
+    <!-- Banco de piezas -->
+    <div class="banco">
+      <div class="pieza" draggable="true" data-pieza="♖">♖</div>
+      <div class="pieza" draggable="true" data-pieza="♘">♘</div>
+      <div class="pieza" draggable="true" data-pieza="♗">♗</div>
+      <div class="pieza" draggable="true" data-pieza="♕">♕</div>
+      <div class="pieza" draggable="true" data-pieza="♔">♔</div>
+      <div class="pieza" draggable="true" data-pieza="♙">♙</div>
+    </div>
+  </div>
+
+
+  <script>
+    const letras = 'ABCDEFGH';
+    const piezasSimbolos = ['♖', '♘', '♗', '♕', '♔', '♙'];  // ← Piezas disponibles
+  
+    const combinaciones = {};
+    let contador = 1;
+  
+    // Generar todas las combinaciones: pieza + casilla
+    for (let pieza of piezasSimbolos) {
+      for (let fila = 1; fila <= 8; fila++) {
+        for (let col = 0; col < 8; col++) {
+          const coord = letras[col] + fila;
+          const clave = `${pieza}-${coord}`;
+          combinaciones[clave] = `./paginas/poema${contador}.html`;
+          contador++;
+        }
+      }
+    }
+  
+    console.log("Combinaciones generadas:", combinaciones); // Verificación
+  
+    const tablero = document.getElementById('board');
+  
+    // Crear el tablero de 8x8
+    function crearTablero() {
+      tablero.innerHTML = '';
+  
+      for (let fila = 0; fila < 8; fila++) {
+        for (let col = 0; col < 8; col++) {
+          const coord = letras[col] + (8 - fila);
+          const celda = document.createElement('div');
+          celda.className = 'cell ' + ((fila + col) % 2 === 0 ? 'white' : 'black');
+          celda.dataset.coord = coord;
+  
+          // Habilitar que se pueda soltar una pieza
+          celda.setAttribute("ondrop", "drop(event)");
+          celda.setAttribute("ondragover", "allowDrop(event)");
+  
+          tablero.appendChild(celda);
+        }
+      }
+    }
+  
+    // Permitir que se suelte una pieza en la celda
+    function drop(event) {
+      event.preventDefault();
+      const pieza = event.dataTransfer.getData('text/plain');
+      const celda = event.target.closest('.cell');
+      if (!celda) return;
+  
+      const coord = celda.dataset.coord;
+      const clave = `${pieza}-${coord}`;
+      const enlace = combinaciones[clave];
+  
+      celda.innerHTML = '';
+  
+      if (enlace) {
+        const link = document.createElement('a');
+        link.href = enlace;
+        link.textContent = pieza;
+        link.title = `Poema para ${pieza} en ${coord}`;
+        link.style.color = 'inherit';
+        link.style.textDecoration = 'none';
+        celda.appendChild(link);
+      } else {
+        const span = document.createElement('span');
+        span.textContent = pieza;
+        span.className = 'pieza-colocada';
+        celda.appendChild(span);
+      }
+    }
+  
+    // Habilitar arrastrar piezas desde el banco
+    document.querySelectorAll('.pieza').forEach(pieza => {
+      pieza.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', pieza.textContent); // Usar el contenido del símbolo
+      });
+    });
+  
+    // Permitir el drop en las celdas
+    function allowDrop(event) {
+      event.preventDefault();  // Necesario para permitir el drop
+    }
+  
+    // Llamar a la función para dibujar el tablero
+    crearTablero();
+  </script>
+  
+   
+</body>
+</html>
